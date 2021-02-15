@@ -71,12 +71,14 @@ describe(`electron-sudo :: ${platform}`, function () {
             });
         });
         describe('[spawn] with ENV vars', async function () {
-            it('should available environment variables', async function (done) {
+            it('should available environment variables', async function () {
                 let cp = await sudoer.spawn('echo', ['%PARAM%'], {env: {PARAM: 'VALUE'}});
-                cp.on('close', () => {
-                    expect(cp.output.stdout.toString().trim()).to.be.equals('VALUE');
-                    expect(cp.pid).to.be.a('number');
-                    done();
+                return new Promise(resolve => {
+                    cp.on('close', () => {
+                        expect(cp.output.stdout.toString().trim()).to.be.equals('VALUE');
+                        expect(cp.pid).to.be.a('number');
+                        resolve();
+                    });
                 });
             });
         });
