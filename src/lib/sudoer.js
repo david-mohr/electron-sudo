@@ -86,7 +86,7 @@ class SudoerDarwin extends SudoerUnix {
 
     async spawn(command, args, options={}) {
         return new Promise(async (resolve, reject) => {
-            let cp = spawn('osascript', ['-e', `do shell script "${[command, ...args].join(' ')}" with administrator privileges'`], options);
+            let cp = spawn('osascript', ['-e', `'do shell script "${[command, ...args].join(' ')}" with administrator privileges'`], options);
             cp.on('error', async (err) => {
                 reject(err);
             });
