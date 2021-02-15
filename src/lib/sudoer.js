@@ -42,35 +42,7 @@ class Sudoer {
     }
 }
 
-class SudoerUnix extends Sudoer {
-
-    constructor(options={}) {
-        super(options);
-        if (!this.options.name) { this.options.name = 'Electron'; }
-    }
-}
-
-class SudoerDarwin extends SudoerUnix {
-
-    constructor(options={}) {
-        super(options);
-        if (options.icns && typeof options.icns !== 'string') {
-            throw new Error('options.icns must be a string if provided.');
-        } else if (options.icns && options.icns.trim().length === 0) {
-            throw new Error('options.icns must be a non-empty string if provided.');
-        }
-    }
-
-    joinEnv(options) {
-        let {env} = options,
-            spreaded = [];
-        if (env && typeof env == 'object') {
-            for (let key in env) {
-                spreaded.push(key.concat('=', env[key]));
-            }
-        }
-        return spreaded;
-    }
+class SudoerDarwin extends Sudoer {
 
     async exec(command, options={}) {
         return new Promise(async (resolve, reject) => {
@@ -96,12 +68,7 @@ class SudoerDarwin extends SudoerUnix {
     }
 }
 
-class SudoerLinux extends SudoerUnix {
-
-    constructor(options={}) {
-        super(options);
-        this.binary = '/usr/bin/pkexec';
-    }
+class SudoerLinux extends Sudoer {
 
     async exec(command, options={}) {
         return new Promise(async (resolve, reject) => {
@@ -110,7 +77,7 @@ class SudoerLinux extends SudoerUnix {
                 options.env = Object.assign(options.env, {DISPLAY: ':0'});
             }
             let flags = '--disable-internal-agent';
-            command = `${this.binary} ${flags} ${command}`;
+          command = `/usr/bin/pkexec ${flags} ${command}`;
             try {
                 let result = await exec(command, options);
                 return resolve(result);
@@ -130,7 +97,7 @@ class SudoerLinux extends SudoerUnix {
             sudoArgs.push(command);
             sudoArgs.push(args);
             try {
-                let cp = spawn(this.binary, sudoArgs, options);
+                let cp = spawn('/usr/bin/pkexec', sudoArgs, options);
                 return resolve(cp);
             } catch (err) {
                 return reject(err);
@@ -140,11 +107,6 @@ class SudoerLinux extends SudoerUnix {
 }
 
 class SudoerWin32 extends Sudoer {
-
-    constructor(options={}) {
-        super(options);
-        this.binary = null;
-    }
 
     async writeBatch(command, args, options) {
         let tmpDir = (await exec('echo %temp%'))
