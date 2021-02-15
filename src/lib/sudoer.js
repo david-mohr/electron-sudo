@@ -7,9 +7,8 @@ let {platform} = process;
 
 class Sudoer {
 
-    constructor(options) {
+    constructor() {
         this.platform = platform;
-        this.options = options;
         this.cp = null;
         this.tmpdir = tmpdir();
     }
@@ -31,14 +30,6 @@ class Sudoer {
 
     encloseDoubleQuotes(string) {
         return string.replace(/(.+)/g, '"$1"');
-    }
-
-    kill(pid) {
-        if (!pid) {
-            return;
-        } else {
-            return;
-        }
     }
 }
 
