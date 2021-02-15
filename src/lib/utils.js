@@ -47,20 +47,8 @@ function concat(source, target) {
     return Buffer.concat([target, source]);
 }
 
-async function stat(target) {
-    let _stat = promisify(fs.stat);
-    try {
-        let fileStat = await _stat(target);
-        return fileStat;
-    } catch (err) {
-        return null;
-    }
-}
-
-let open = promisify(fs.open),
-    mkdir = promisify(fs.mkdir),
-    readFile = promisify(fs.readFile),
+let readFile = promisify(fs.readFile),
     writeFile = promisify(fs.writeFile);
 
 
-export {readFile, writeFile, spawn, exec, mkdir, stat, open};
+export {readFile, writeFile, spawn, exec};
