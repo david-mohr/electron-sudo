@@ -31,7 +31,7 @@ describe(`electron-sudo :: ${platform}`, function () {
                     cp.on('close', () => {
                         expect(cp.output.stdout.toString().trim()).to.be.equals('VALUE');
                         expect(cp.pid).to.be.a('number');
-                        done();
+                        resolve();
                     });
                 });
             });
