@@ -18,7 +18,11 @@ class Sudoer {
             spreaded = [];
         if (env && typeof env == 'object') {
             for (let key in env) {
-                spreaded.push(key.concat('=', env[key]));
+                if (process.platform === 'win32') {
+                    spreaded.push(key.concat('=', env[key]));
+                } else {
+                    spreaded.push(`${key}="${env[key]}"`);
+                }
             }
         }
         return spreaded;
