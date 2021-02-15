@@ -1,6 +1,6 @@
-import {SudoerDarwin, SudoerWin32, SudoerLinux} from './lib/sudoer';
+const {SudoerDarwin, SudoerWin32, SudoerLinux} = require('./lib/sudoer');
 
-export default (() => {
+module.exports = (() => {
     let {platform} = process;
     switch (platform) {
         case 'darwin':

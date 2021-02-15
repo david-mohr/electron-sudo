@@ -1,14 +1,10 @@
-import {tmpdir} from 'os';
-import {watchFile, unwatchFile, unlink, createReadStream} from 'fs';
-
-import {readFile, writeFile, exec, spawn} from './utils';
-
-let {platform} = process;
+const {tmpdir} = require('os');
+const {watchFile, unwatchFile, unlink, createReadStream} = require('fs');
+const {readFile, writeFile, exec, spawn} = require('./utils');
 
 class Sudoer {
 
     constructor() {
-        this.platform = platform;
         this.cp = null;
         this.tmpdir = tmpdir();
     }
@@ -186,4 +182,4 @@ class SudoerWin32 extends Sudoer {
     }
 }
 
-export {SudoerDarwin, SudoerLinux, SudoerWin32};
+module.exports = {SudoerDarwin, SudoerLinux, SudoerWin32};

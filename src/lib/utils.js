@@ -1,6 +1,5 @@
-import fs from 'fs';
-import child from 'child_process';
-
+const fs = require('fs');
+const child = require('child_process')
 
 function promisify(fn) {
     return function() {
@@ -51,4 +50,4 @@ let readFile = promisify(fs.readFile),
     writeFile = promisify(fs.writeFile);
 
 
-export {readFile, writeFile, spawn, exec};
+module.exports = {readFile, writeFile, spawn, exec};
