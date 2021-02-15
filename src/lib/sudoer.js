@@ -154,21 +154,21 @@ class SudoerWin32 extends Sudoer {
         );
         cp.last = output.length;
         cp.on('exit', () => {
-            this.clean(cp);
+            this.clean(cp.files);
         });
         return cp;
     }
 
     async exec(command, options={}) {
-        let files, output;
         return new Promise(async (resolve, reject) => {
             try {
-                files = await this.writeBatch(command, [], options);
+                const files = await this.writeBatch(command, [], options);
                 command = `powershell -Command "Start-Process cmd -Verb RunAs -WindowStyle hidden -Wait -ArgumentList '/c ${files.batch}'"`;
                 // No need to wait exec output because output is redirected to temporary file
                 await exec(command, options);
                 // Read entire output from redirected file on process exit
-                output = await readFile(files.output);
+                const output = await readFile(files.output);
+                this.clean(files);
                 return resolve(output);
             } catch (err) {
                 return reject(err);
@@ -185,10 +185,10 @@ class SudoerWin32 extends Sudoer {
         return cp;
     }
 
-    clean (cp) {
-        unwatchFile(cp.files.output);
-        unlink(cp.files.batch, () => {});
-        unlink(cp.files.output, () => {});
+    clean (files) {
+        unwatchFile(files.output);
+        unlink(files.batch, () => {});
+        unlink(files.output, () => {});
     }
 }
 
