@@ -3,7 +3,7 @@ import {watchFile, unwatchFile, unlink, createReadStream} from 'fs';
 
 import {readFile, writeFile, exec, spawn} from './utils';
 
-let {platform, env} = process;
+let {platform} = process;
 
 class Sudoer {
 
@@ -48,10 +48,6 @@ class SudoerUnix extends Sudoer {
         super(options);
         if (!this.options.name) { this.options.name = 'Electron'; }
     }
-
-    async reset() {
-        await exec('/usr/bin/sudo -k');
-    }
 }
 
 class SudoerDarwin extends SudoerUnix {
@@ -63,10 +59,6 @@ class SudoerDarwin extends SudoerUnix {
         } else if (options.icns && options.icns.trim().length === 0) {
             throw new Error('options.icns must be a non-empty string if provided.');
         }
-    }
-
-    isValidName(name) {
-        return /^[a-z0-9 ]+$/i.test(name) && name.trim().length > 0 && name.length < 70;
     }
 
     joinEnv(options) {
@@ -82,72 +74,24 @@ class SudoerDarwin extends SudoerUnix {
 
     async exec(command, options={}) {
         return new Promise(async (resolve, reject) => {
-            let env = this.joinEnv(options);
-            let sudoCommand = ['/usr/bin/sudo -n', env.join(' '), '-s', command].join(' ');
-            await this.reset();
+            const env = {...process.env, ...options.env};
             try {
-                let result = await exec(sudoCommand, options);
+                let result = await exec(`osascript -e 'do shell script "${command}" with administrator privileges'`, {env});
                 resolve(result);
             } catch (err) {
-                try {
-                    // Prompt password
-                    await this.prompt();
-                    // Try once more
-                    let result = await exec(sudoCommand, options);
-                    resolve(result);
-                } catch (err) {
-                    reject(err);
-                }
+                reject(err);
             }
         });
     }
 
     async spawn(command, args, options={}) {
         return new Promise(async (resolve, reject) => {
-            let bin = '/usr/bin/sudo',
-                cp;
-            await this.reset();
-            // Prompt password
-            await this.prompt();
-            cp = spawn(bin, ['-n', '-s', '-E', [command, ...args].join(' ')], options);
+            let cp = spawn('osascript', ['-e', `do shell script "${[command, ...args].join(' ')}" with administrator privileges'`], options);
             cp.on('error', async (err) => {
                 reject(err);
             });
             this.cp = cp;
             resolve(cp);
-        });
-    }
-
-    async prompt() {
-        return new Promise(async (resolve, reject) => {
-            if (!this.tmpdir) {
-                return reject(
-                    new Error('Requires os.tmpdir() to be defined.')
-                );
-            }
-            if (!env.USER) {
-                return reject(
-                    new Error('Requires env[\'USER\'] to be defined.')
-                );
-            }
-            try {
-                // Open UI dialog with password prompt
-                await this.open();
-            } catch (err) {
-                return reject(err);
-            }
-            return resolve();
-        });
-    }
-
-    async open() {
-        return new Promise(async (resolve, reject) => {
-            try {
-                let result = await exec(`osascript -e 'do shell script "mkdir -p /var/db/sudo/$USER; touch /var/db/sudo/$USER" with administrator privileges'`);
-                return resolve(result);
-            } catch (err) {
-                return reject(err);
-            }
         });
     }
 }
