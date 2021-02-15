@@ -7,7 +7,7 @@
     mocha: true
   parser: "babel-eslint"
   parserOptions:
-    ecmaVersion: 7
+    ecmaVersion: 2018
     sourceType: "module"
     ecmaFeatures:
       arrowFunctions: true
@@ -108,15 +108,3 @@
     no-const-assign: "error"
     no-confusing-arrow: "error"
     constructor-super: "error"
-    babel/generator-star-spacing: 1
-    babel/new-cap:
-      - 2
-      -
-        capIsNewExceptions:
-          - "$.Event"
-    babel/object-shorthand: 1
-    babel/arrow-parens: 1
-    babel/no-await-in-loop: 1
-
-  plugins:
-    - "babel"
