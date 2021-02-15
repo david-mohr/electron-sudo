@@ -226,8 +226,7 @@ class SudoerWin32 extends Sudoer {
     }
 
     async watchOutput(cp) {
-        let self = this,
-            output = await readFile(cp.files.output);
+        let output = await readFile(cp.files.output);
         // If we have process then emit watched and stored data to stdout
         cp.stdout.emit('data', output);
         let watcher = watchFile(
@@ -249,18 +248,17 @@ class SudoerWin32 extends Sudoer {
         );
         cp.last = output.length;
         cp.on('exit', () => {
-            self.clean(cp);
+            this.clean(cp);
         });
         return cp;
     }
 
     async exec(command, options={}) {
-        let self = this, files, output;
+        let files, output;
         return new Promise(async (resolve, reject) => {
             try {
-                await this.prepare();
-                files = await self.writeBatch(command, [], options);
-                command = `powershell -Command "Start-Process cmd -Verb RunAs -ArgumentList '${files.batch}'"`;
+                files = await this.writeBatch(command, [], options);
+                command = `powershell -Command "Start-Process cmd -Verb RunAs -WindowStyle hidden -Wait -ArgumentList '/c ${files.batch}'"`;
                 // No need to wait exec output because output is redirected to temporary file
                 await exec(command, options);
                 // Read entire output from redirected file on process exit
@@ -273,13 +271,9 @@ class SudoerWin32 extends Sudoer {
     }
 
     async spawn(command, args, options={}) {
-        let files = await this.writeBatch(command, args, options),
-            sudoArgs = [],
-            cp;
-        sudoArgs.push('-wait');
-        sudoArgs.push(files.batch);
-        await this.prepare();
-        cp = spawn(this.binary, sudoArgs, options, {wait: false});
+        let files = await this.writeBatch(command, args, options);
+        let sudoArgs = ['-Command', `"Start-Process cmd -Verb RunAs -WindowStyle hidden -Wait -ArgumentList '/c ${files.batch}'"`];
+        let cp = spawn('powershell', sudoArgs, options, {wait: false});
         cp.files = files;
         await this.watchOutput(cp);
         return cp;

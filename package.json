@@ -31,7 +31,7 @@
   "scripts": {
     "prepublish": "npm run test",
     "lint": "node_modules/eslint/bin/eslint.js -c .eslintrc ./src",
-    "test-win32": "node node_modules\\mocha\\bin\\mocha --compilers js:babel-core/register tests",
+    "test-win32": "node node_modules\\mocha\\bin\\mocha --require @babel/register tests",
     "test": "node_modules/mocha/bin/mocha --require @babel/register ./tests"
   },
   "devDependencies": {
