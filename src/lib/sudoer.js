@@ -80,13 +80,12 @@ class SudoerLinux extends Sudoer {
 
     async spawn(command, args, options={}) {
         return new Promise(async (resolve, reject) => {
-            if (options.env instanceof Object && !options.env.DISPLAY) {
-                // Force DISPLAY variable with default value which is required for UI dialog
-                options.env = Object.assign(options.env, {DISPLAY: ':0'});
-            }
             let sudoArgs = ['--disable-internal-agent'];
+            if (options.env) {
+                sudoArgs.push('env', ...this.joinEnv(options))
+            }
             sudoArgs.push(command);
-            sudoArgs.push(args);
+            sudoArgs.push(...args);
             try {
                 let cp = spawn('/usr/bin/pkexec', sudoArgs, options);
                 return resolve(cp);
