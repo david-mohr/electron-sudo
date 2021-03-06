@@ -1,5 +1,5 @@
 const {tmpdir} = require('os');
-const {watchFile, unwatchFile, unlink, createReadStream} = require('fs');
+const {watch, unlink, createReadStream} = require('fs');
 const {readFile, writeFile, exec, spawn} = require('./utils');
 
 class Sudoer {
@@ -121,29 +121,39 @@ class SudoerWin32 extends Sudoer {
     }
 
     async watchOutput() {
-        if (!this.cp) return;
+        if (!this.cp) {
+            return;
+        }
         let output = await readFile(this.cp.files.output);
         // If we have process then emit watched and stored data to stdout
         this.cp.stdout.emit('data', output);
-        let watcher = watchFile(
-            this.cp.files.output, {persistent: true, interval: 1},
-            () => {
-                let stream = createReadStream(
-                        this.cp.files.output,
-                        {start: this.cp.last}
-                    ),
-                    size = 0;
-                stream.on('data', (data) => {
-                    size += data.length;
-                    if (this.cp) { this.cp.stdout.emit('data', data); }
-                });
-                stream.on('close', () => {
-                    this.cp.last += size;
-                });
+        let readInProgress = false;
+        let readAgain = false;
+        let start = output.length;
+        let tailFile = () => {
+            if (readInProgress) {
+                readAgain = true;
+                return;
             }
-        );
-        this.cp.last = output.length;
+            let stream = createReadStream(this.cp.files.output, { start });
+            readInProgress = true;
+            stream.on('data', (data) => {
+                start += data.length;
+                if (this.cp) { this.cp.stdout.emit('data', data); }
+            });
+            const done = () => {
+                readInProgress = false;
+                if (readAgain) {
+                    readAgain = false;
+                    tailFile();
+                }
+            };
+            stream.on('error', done);
+            stream.on('close', done);
+        };
+        let watcher = watch(this.cp.files.output, {persistent: true}, tailFile);
         this.cp.on('exit', () => {
+            watcher.close();
             this.clean(this.cp.files);
         });
     }
@@ -175,7 +185,6 @@ class SudoerWin32 extends Sudoer {
     }
 
     clean (files) {
-        unwatchFile(files.output);
         unlink(files.batch, () => {});
         unlink(files.output, () => {});
     }
