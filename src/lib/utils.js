@@ -26,7 +26,7 @@ async function exec(cmd, options={}) {
 
 function spawn(cmd, args, options={}) {
     let cp = child.spawn(cmd, args, {...options, shell: true});
-    cp.output = { stdout: new Buffer(0), stderr: new Buffer(0) };
+    cp.output = { stdout: new Buffer.alloc(0), stderr: new Buffer.alloc(0) };
     cp.stdout.on('data', (data) => {
         cp.output.stdout = concat(data, cp.output.stdout);
     });
@@ -38,10 +38,10 @@ function spawn(cmd, args, options={}) {
 
 function concat(source, target) {
     if (!(source instanceof Buffer)) {
-        source = new Buffer(source, 'utf8');
+        source = new Buffer.from(source, 'utf8');
     }
     if (!target instanceof Buffer) {
-        target = new Buffer(0);
+        target = new Buffer.alloc(0);
     }
     return Buffer.concat([target, source]);
 }
