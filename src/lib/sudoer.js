@@ -130,7 +130,7 @@ class SudoerWin32 extends Sudoer {
             () => {
                 let stream = createReadStream(
                         cp.files.output,
-                        {start: watcher.last}
+                        {start: cp.last}
                     ),
                     size = 0;
                 stream.on('data', (data) => {
