@@ -49,12 +49,11 @@ class SudoerDarwin extends Sudoer {
 
     async spawn(command, args, options={}) {
         return new Promise(async (resolve, reject) => {
-            let cp = spawn('osascript', ['-e', `'do shell script "${[command, ...args].join(' ')}" with administrator privileges'`], options);
-            cp.on('error', async (err) => {
+            this.cp = spawn('osascript', ['-e', `'do shell script "${[command, ...args].join(' ')}" with administrator privileges'`], options);
+            this.cp.on('error', async (err) => {
                 reject(err);
             });
-            this.cp = cp;
-            resolve(cp);
+            resolve(this.cp);
         });
     }
 }
@@ -87,8 +86,8 @@ class SudoerLinux extends Sudoer {
             sudoArgs.push(command);
             sudoArgs.push(...args);
             try {
-                let cp = spawn('/usr/bin/pkexec', sudoArgs, options);
-                return resolve(cp);
+                this.cp = spawn('/usr/bin/pkexec', sudoArgs, options);
+                return resolve(this.cp);
             } catch (err) {
                 return reject(err);
             }
@@ -121,32 +120,32 @@ class SudoerWin32 extends Sudoer {
         };
     }
 
-    async watchOutput(cp) {
-        let output = await readFile(cp.files.output);
+    async watchOutput() {
+        if (!this.cp) return;
+        let output = await readFile(this.cp.files.output);
         // If we have process then emit watched and stored data to stdout
-        cp.stdout.emit('data', output);
+        this.cp.stdout.emit('data', output);
         let watcher = watchFile(
-            cp.files.output, {persistent: true, interval: 1},
+            this.cp.files.output, {persistent: true, interval: 1},
             () => {
                 let stream = createReadStream(
-                        cp.files.output,
-                        {start: cp.last}
+                        this.cp.files.output,
+                        {start: this.cp.last}
                     ),
                     size = 0;
                 stream.on('data', (data) => {
                     size += data.length;
-                    if (cp) { cp.stdout.emit('data', data); }
+                    if (this.cp) { this.cp.stdout.emit('data', data); }
                 });
                 stream.on('close', () => {
-                    cp.last += size;
+                    this.cp.last += size;
                 });
             }
         );
-        cp.last = output.length;
-        cp.on('exit', () => {
-            this.clean(cp.files);
+        this.cp.last = output.length;
+        this.cp.on('exit', () => {
+            this.clean(this.cp.files);
         });
-        return cp;
     }
 
     async exec(command, options={}) {
@@ -169,10 +168,10 @@ class SudoerWin32 extends Sudoer {
     async spawn(command, args, options={}) {
         let files = await this.writeBatch(command, args, options);
         let sudoArgs = ['-Command', `"Start-Process cmd -Verb RunAs -WindowStyle hidden -Wait -ArgumentList '/c ${files.batch}'"`];
-        let cp = spawn('powershell', sudoArgs, options, {wait: false});
-        cp.files = files;
-        await this.watchOutput(cp);
-        return cp;
+        this.cp = spawn('powershell', sudoArgs, options, {wait: false});
+        this.cp.files = files;
+        await this.watchOutput();
+        return this.cp;
     }
 
     clean (files) {
