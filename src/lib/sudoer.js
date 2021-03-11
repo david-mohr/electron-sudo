@@ -1,8 +1,21 @@
+const child = require('child_process');
 const { readFile, writeFile, mkdtemp, rmdir } = require('fs').promises;
 const { tmpdir } = require('os');
 const path = require('path');
-const {watch, createReadStream} = require('fs');
-const {exec, spawn} = require('./utils');
+const { watch, createReadStream } = require('fs');
+
+async function exec(cmd, options={}) {
+  return new Promise((resolve, reject) => {
+    child.exec(cmd, options, (err, stdout, stderr) => {
+      if (err) { return reject(err); }
+      return resolve({stdout, stderr});
+    });
+  });
+}
+
+function spawn(cmd, args, options={}) {
+  return child.spawn(cmd, args, {...options, shell: true});
+}
 
 class Sudoer {
 
@@ -189,7 +202,7 @@ class SudoerWin32 extends Sudoer {
     let files = await this.writeBatch(command, args, options);
     // DOS shell: two double quotes to escape
     let sudoArgs = ['-Command', `"Start-Process cmd -Verb RunAs -WindowStyle hidden -Wait -ArgumentList '/c ""${files.batch}""'"`];
-    this.cp = spawn('powershell', sudoArgs, options, {wait: false});
+    this.cp = spawn('powershell', sudoArgs, options);
     this.cp.files = files;
     await this.watchOutput();
     return this.cp;

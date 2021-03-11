@@ -23,9 +23,11 @@ describe(`electron-sudo :: ${platform}`, function () {
     describe('[spawn] with ENV vars', async function () {
       it('should available environment variables', async function () {
         let cp = await sudoer.spawn('echo', ['$PARAM'], {env: {PARAM: 'VALUE'}});
+        let output = ''
+        cp.stdout.on('data', data => output += data.toString());
         return new Promise(resolve => {
           cp.on('close', () => {
-            expect(cp.output.stdout.toString().trim()).to.be.equals('VALUE');
+            expect(output.trim()).to.be.equals('VALUE');
             expect(cp.pid).to.be.a('number');
             resolve();
           });
@@ -48,9 +50,11 @@ describe(`electron-sudo :: ${platform}`, function () {
       it('should available environment variables', async function () {
         sudoer.binary = '/usr/bin/pkexec';
         let cp = await sudoer.spawn('echo', ['$PARAM'], {env: {PARAM: 'VALUE'}});
+        let output = ''
+        cp.stdout.on('data', data => output += data.toString());
         return new Promise(resolve => {
           cp.on('close', () => {
-            expect(cp.output.stdout.toString().trim()).to.be.equals('VALUE');
+            expect(output.trim()).to.be.equals('VALUE');
             expect(cp.pid).to.be.a('number');
             resolve();
           });
