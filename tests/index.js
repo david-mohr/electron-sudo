@@ -1,6 +1,7 @@
 import chai from 'chai';
 import dirtyChai from 'dirty-chai';
 import Sudoer from '../src/index';
+import { EOL } from 'os';
 
 let { expect } = chai;
 let { platform } = process;
@@ -27,6 +28,33 @@ describe(`electron-sudo :: ${platform}`, function () {
       cp.on('close', () => {
         expect(output.trim()).to.be.equals('VALUE');
         expect(cp.pid).to.be.a('number');
+        resolve();
+      });
+    });
+  });
+
+  it('should spawn and capture stderr', async function () {
+    let cp = await sudoer.spawn('echo', ['VALUE', '>&2']);
+    let output = '';
+    cp.stderr.on('data', data => output += data.toString());
+    return new Promise(resolve => {
+      cp.on('close', () => {
+        expect(output.trim()).to.be.equals('VALUE');
+        resolve();
+      });
+    });
+  });
+
+  it('should spawn and report stdout immediately', async function () {
+    let cp = await sudoer.spawn('echo', ['VAL1', ';', 'sleep', '2', ';', 'echo', 'VAL2']);
+    let output = '';
+    let output1s;
+    cp.stdout.on('data', data => output += data.toString());
+    setTimeout(() => output1s = output, 1000);
+    return new Promise(resolve => {
+      cp.on('close', () => {
+        expect(output1s.trim()).to.be.equals(`VAL1`);
+        expect(output.trim()).to.be.equals(`VAL1${EOL}VAL2`);
         resolve();
       });
     });
