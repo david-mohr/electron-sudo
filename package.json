@@ -29,9 +29,8 @@
   },
   "homepage": "https://github.com/automation-stack/electron-sudo#readme",
   "scripts": {
-    "lint": "node_modules/eslint/bin/eslint.js -c .eslintrc ./src",
-    "test-win32": "node node_modules\\mocha\\bin\\mocha --require @babel/register tests",
-    "test": "node_modules/mocha/bin/mocha --require @babel/register ./tests"
+    "lint": "eslint -c .eslintrc ./src",
+    "test": "mocha --require @babel/register tests"
   },
   "devDependencies": {
     "@babel/core": "^7.12.16",
