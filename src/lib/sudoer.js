@@ -13,10 +13,6 @@ async function exec(cmd, options={}) {
   });
 }
 
-function spawn(cmd, args, options={}) {
-  return child.spawn(cmd, args, {...options, shell: true});
-}
-
 class Sudoer {
 
   constructor() {
@@ -72,7 +68,7 @@ class SudoerDarwin extends Sudoer {
 
   async spawn(command, args, options={}) {
     return new Promise(async (resolve, reject) => {
-      this.cp = spawn('osascript', ['-e', `'do shell script "${[command, ...args].join(' ')}" with administrator privileges'`], options);
+      this.cp = spawn('osascript', ['-e', `'do shell script "${[command, ...args].join(' ')}" with administrator privileges'`], { ...options, shell: true });
       this.cp.on('error', async (err) => {
         reject(err);
       });
@@ -205,7 +201,7 @@ class SudoerWin32 extends Sudoer {
     let files = await this.writeBatch(command, args, options);
     // DOS shell: two double quotes to escape
     let sudoArgs = ['-Command', `"Start-Process cmd -Verb RunAs -WindowStyle hidden -Wait -ArgumentList '/c ""${files.batch}""'"`];
-    this.cp = spawn('powershell', sudoArgs, options);
+    this.cp = child.spawn('powershell', sudoArgs, { ...options, shell: true });
     this.cp.files = files;
     await this.watchOutput();
     return this.cp;
