@@ -189,9 +189,12 @@ class SudoerWin32 extends Sudoer {
         // No need to wait exec output because output is redirected to temporary file
         await exec(command, options);
         // Read entire output from redirected file on process exit
-        const output = await readFile(files.stdout);
+        const output = await Promise.all([
+          readFile(files.stdout, 'utf8'),
+          readFile(files.stderr, 'utf8')
+        ]);
         this.clean(files);
-        return resolve(output);
+        return resolve({stdout: output[0], stderr: output[1]});
       } catch (err) {
         return reject(err);
       }
