@@ -78,39 +78,18 @@ class SudoerDarwin extends Sudoer {
 }
 
 class SudoerLinux extends Sudoer {
-
   async exec(command, options={}) {
-    return new Promise(async (resolve, reject) => {
-      if (options.env instanceof Object && !options.env.DISPLAY) {
-        // Force DISPLAY variable with default value which is required for UI dialog
-        options.env = Object.assign(options.env, {DISPLAY: ':0'});
-      }
-      let flags = '--disable-internal-agent';
-      command = `/usr/bin/pkexec ${flags} ${command}`;
-      try {
-        let result = await exec(command, options);
-        return resolve(result);
-      } catch (err) {
-        return reject(err);
-      }
-    });
+    return exec(`/usr/bin/pkexec --disable-internal-agent ${command}`, options);
   }
 
   async spawn(command, args, options={}) {
-    return new Promise(async (resolve, reject) => {
-      let sudoArgs = ['--disable-internal-agent'];
-      if (options.env) {
-        sudoArgs.push('env', ...this.joinEnv(options));
-      }
-      sudoArgs.push(command);
-      sudoArgs.push(...args);
-      try {
-        this.cp = spawn('/usr/bin/pkexec', sudoArgs, options);
-        return resolve(this.cp);
-      } catch (err) {
-        return reject(err);
-      }
-    });
+    let sudoArgs = ['--disable-internal-agent'];
+    if (options.env) {
+      sudoArgs.push('env', ...this.joinEnv(options));
+    }
+    sudoArgs.push(command);
+    sudoArgs.push(...args);
+    return child.spawn('/usr/bin/pkexec', sudoArgs, { ...options, shell: true });
   }
 }
 
