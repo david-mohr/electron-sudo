@@ -1,8 +1,8 @@
-const { mkdtemp, rmdir } = require('fs').promises;
+const { readFile, writeFile, mkdtemp, rmdir } = require('fs').promises;
 const { tmpdir } = require('os');
 const path = require('path');
 const {watch, createReadStream} = require('fs');
-const {readFile, writeFile, exec, spawn} = require('./utils');
+const {exec, spawn} = require('./utils');
 
 class Sudoer {
 

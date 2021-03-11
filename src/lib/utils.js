@@ -1,19 +1,4 @@
-const fs = require('fs');
 const child = require('child_process');
-
-function promisify(fn) {
-  return function() {
-    return new Promise((resolve, reject) => {
-      fn(...arguments, function () {
-        if (arguments[0] instanceof Error) {
-          reject(arguments[0]);
-        } else {
-          resolve(...Array.prototype.slice.call(arguments, 1));
-        }
-      });
-    });
-  };
-}
 
 async function exec(cmd, options={}) {
   return new Promise((resolve, reject) => {
@@ -46,8 +31,4 @@ function concat(source, target) {
   return Buffer.concat([target, source]);
 }
 
-let readFile = promisify(fs.readFile),
-  writeFile = promisify(fs.writeFile);
-
-
-module.exports = {readFile, writeFile, spawn, exec};
+module.exports = {spawn, exec};
