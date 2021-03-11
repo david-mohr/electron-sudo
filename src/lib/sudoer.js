@@ -1,12 +1,22 @@
-const {tmpdir} = require('os');
-const {watch, unlink, createReadStream} = require('fs');
+const { mkdtemp, rmdir } = require('fs').promises;
+const { tmpdir } = require('os');
+const path = require('path');
+const {watch, createReadStream} = require('fs');
 const {readFile, writeFile, exec, spawn} = require('./utils');
 
 class Sudoer {
 
   constructor() {
     this.cp = null;
-    this.tmpdir = tmpdir();
+  }
+
+  async makeTempDir() {
+    const dir = await mkdtemp(path.join(tmpdir(), 'electron-sudo-'));
+    return {
+      dir,
+      stdout: path.join(dir, 'stdout'),
+      stderr: path.join(dir, 'stderr')
+    };
   }
 
   joinEnv(options) {
@@ -98,13 +108,10 @@ class SudoerLinux extends Sudoer {
 class SudoerWin32 extends Sudoer {
 
   async writeBatch(command, args, options) {
-    let tmpDir = (await exec('echo %temp%'))
-        .stdout.toString()
-        .replace(/\r\n$/, ''),
-      tmpBatchFile = `${tmpDir}\\batch-${Math.random()}.bat`,
-      tmpOutputFile = `${tmpDir}\\output-${Math.random()}`,
-      env = this.joinEnv(options),
-      batch = `setlocal enabledelayedexpansion\r\n`;
+    let tmpDir = await this.makeTempDir();
+    let tmpBatchFile = path.join(tmpDir.dir, 'batch.bat');
+    let env = this.joinEnv(options);
+    let batch = `setlocal enabledelayedexpansion\r\n`;
     if (env.length) {
       batch += `set ${env.join('\r\nset ')}\r\n`;
     }
@@ -113,10 +120,12 @@ class SudoerWin32 extends Sudoer {
     } else {
       batch += command;
     }
-    await writeFile(tmpBatchFile, `${batch} > ${tmpOutputFile} 2>&1`);
-    await writeFile(tmpOutputFile, '');
+    await writeFile(tmpBatchFile, `${batch} > "${tmpDir.stdout}" 2> "${tmpDir.stderr}"`);
+    await writeFile(tmpDir.stdout, '');
+    await writeFile(tmpDir.stderr, '');
     return {
-      batch: tmpBatchFile, output: tmpOutputFile
+      ...tmpDir,
+      batch: tmpBatchFile
     };
   }
 
@@ -124,7 +133,7 @@ class SudoerWin32 extends Sudoer {
     if (!this.cp) {
       return;
     }
-    let output = await readFile(this.cp.files.output);
+    let output = await readFile(this.cp.files.stdout);
     // If we have process then emit watched and stored data to stdout
     this.cp.stdout.emit('data', output);
     let readInProgress = false;
@@ -135,7 +144,7 @@ class SudoerWin32 extends Sudoer {
         readAgain = true;
         return;
       }
-      let stream = createReadStream(this.cp.files.output, { start });
+      let stream = createReadStream(this.cp.files.stdout, { start });
       readInProgress = true;
       stream.on('data', (data) => {
         start += data.length;
@@ -151,7 +160,7 @@ class SudoerWin32 extends Sudoer {
       stream.on('error', done);
       stream.on('close', done);
     };
-    let watcher = watch(this.cp.files.output, {persistent: true}, tailFile);
+    let watcher = watch(this.cp.files.stdout, {persistent: true}, tailFile);
     this.cp.on('exit', () => {
       watcher.close();
       this.clean(this.cp.files);
@@ -162,11 +171,12 @@ class SudoerWin32 extends Sudoer {
     return new Promise(async (resolve, reject) => {
       try {
         const files = await this.writeBatch(command, [], options);
-        command = `powershell -Command "Start-Process cmd -Verb RunAs -WindowStyle hidden -Wait -ArgumentList '/c ${files.batch}'"`;
+        // DOS shell: two double quotes to escape
+        command = `powershell -Command "Start-Process cmd -Verb RunAs -WindowStyle hidden -Wait -ArgumentList '/c ""${files.batch}""'"`;
         // No need to wait exec output because output is redirected to temporary file
         await exec(command, options);
         // Read entire output from redirected file on process exit
-        const output = await readFile(files.output);
+        const output = await readFile(files.stdout);
         this.clean(files);
         return resolve(output);
       } catch (err) {
@@ -177,16 +187,16 @@ class SudoerWin32 extends Sudoer {
 
   async spawn(command, args, options={}) {
     let files = await this.writeBatch(command, args, options);
-    let sudoArgs = ['-Command', `"Start-Process cmd -Verb RunAs -WindowStyle hidden -Wait -ArgumentList '/c ${files.batch}'"`];
+    // DOS shell: two double quotes to escape
+    let sudoArgs = ['-Command', `"Start-Process cmd -Verb RunAs -WindowStyle hidden -Wait -ArgumentList '/c ""${files.batch}""'"`];
     this.cp = spawn('powershell', sudoArgs, options, {wait: false});
     this.cp.files = files;
     await this.watchOutput();
     return this.cp;
   }
 
-  clean (files) {
-    unlink(files.batch, () => {});
-    unlink(files.output, () => {});
+  async clean (files) {
+    await rmdir(files.dir, {recursive: true});
   }
 }
 
