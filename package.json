@@ -29,7 +29,7 @@
   },
   "homepage": "https://github.com/automation-stack/electron-sudo#readme",
   "scripts": {
-    "lint": "eslint -c .eslintrc ./src",
+    "lint": "eslint -c .eslintrc src tests",
     "test": "mocha --require @babel/register tests"
   },
   "devDependencies": {
