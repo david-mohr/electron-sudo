@@ -1,4 +1,4 @@
-const {SudoerDarwin, SudoerWin32, SudoerLinux} = require('./lib/sudoer');
+const {SudoerDarwin, SudoerWin32, SudoerLinux} = require('./sudoer');
 
 module.exports = (() => {
   let {platform} = process;

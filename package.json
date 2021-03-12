@@ -1,13 +1,13 @@
 {
   "name": "electron-sudo",
-  "version": "4.0.13",
+  "version": "5.0.0",
   "description": "Electron subprocess with administrative privileges, prompting the user with an OS dialog if necessary.",
-  "main": "./src/index.js",
-  "author": "Aleksandr Komlev",
+  "main": "index.js",
+  "author": "David Mohr",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git@github.com:automation-stack/electron-sudo.git"
+    "url": "git@github.com:david-mohr/electron-sudo.git"
   },
   "keywords": [
     "sudo",
@@ -25,22 +25,17 @@
     "subprocess"
   ],
   "bugs": {
-    "url": "https://github.com/automation-stack/electron-sudo/issues"
+    "url": "https://github.com/david-mohr/electron-sudo/issues"
   },
-  "homepage": "https://github.com/automation-stack/electron-sudo#readme",
+  "homepage": "https://github.com/david-mohr/electron-sudo#readme",
   "scripts": {
-    "lint": "eslint -c .eslintrc src tests",
-    "test": "mocha --require @babel/register tests"
+    "lint": "eslint -c .eslintrc *.js tests",
+    "test": "mocha tests"
   },
   "devDependencies": {
-    "@babel/core": "^7.12.16",
-    "@babel/preset-env": "^7.12.16",
-    "@babel/register": "^7.12.13",
-    "babel-eslint": "^10.1.0",
     "chai": "^4.3.0",
     "dirty-chai": "^2.0.1",
     "eslint": "^7.20.0",
-    "eslint-plugin-import": "^2.22.1",
     "mocha": "^8.3.0"
   }
 }
