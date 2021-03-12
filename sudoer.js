@@ -26,20 +26,6 @@ async function makeTempDir() {
   return files;
 }
 
-function joinEnv(env) {
-  let spreaded = [];
-  if (env && typeof env == 'object') {
-    for (let key in env) {
-      if (process.platform === 'win32') {
-        spreaded.push(key.concat('=', env[key]));
-      } else {
-        spreaded.push(`${key}="${env[key]}"`);
-      }
-    }
-  }
-  return spreaded;
-}
-
 function _watch(cp, files, name) {
   let readInProgress = false;
   let readAgain = false;
@@ -124,7 +110,11 @@ module.exports.SudoerLinux = {
   async spawn(command, args, options={}) {
     let sudoArgs = ['--disable-internal-agent'];
     if (options.env) {
-      sudoArgs.push('env', ...joinEnv(options.env));
+      if (options.shell) {
+        sudoArgs.push('env', ...Object.keys(options.env).map(k => `${k}=${prepParam(options.env[k])}`));
+      } else {
+        sudoArgs.push('env', ...Object.keys(options.env).map(k => `${k}=${options.env[k]}`));
+      }
     }
     sudoArgs.push(command);
     sudoArgs.push(...args);
@@ -135,10 +125,9 @@ module.exports.SudoerLinux = {
 async function writeBatch(command, args, options) {
   const files = await makeTempDir();
   files.batch = path.join(files.dir, 'batch.bat');
-  let env = joinEnv(options.env);
   let batch = `setlocal enabledelayedexpansion\r\n`;
-  if (env.length) {
-    batch += `set ${env.join('\r\nset ')}\r\n`;
+  if (options.env) {
+    batch += Object.keys(options.env).map(k => `set ${k}=${options.env[k]}\r\n`);
   }
   // check the command and all the args for spaces and double quotes
   if (args && args.length) {
