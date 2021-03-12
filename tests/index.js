@@ -74,4 +74,32 @@ describe(`electron-sudo :: ${platform}`, function () {
       });
     });
   });
+
+  it('should spawn concurrently', async function () {
+    let cp1 = await sudoer.spawn('node', ['-e', `setTimeout(() => console.log('VAL1'), 2000)`]);
+    let cp2 = await sudoer.spawn('node', ['-e', `console.log('VAL2')`]);
+    let output1 = '';
+    let output2 = '';
+    cp1.stdout.on('data', data => output1 += data.toString());
+    cp2.stdout.on('data', data => output2 += data.toString());
+    let gotOne = false;
+    return new Promise(resolve => {
+      cp1.on('close', () => {
+        expect(output1.trim()).to.be.equals(`VAL1`);
+        if (gotOne) {
+          resolve();
+        } else {
+          gotOne = true;
+        }
+      });
+      cp2.on('close', () => {
+        expect(output2.trim()).to.be.equals(`VAL2`);
+        if (gotOne) {
+          resolve();
+        } else {
+          gotOne = true;
+        }
+      });
+    });
+  });
 });

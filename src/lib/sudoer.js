@@ -15,20 +15,17 @@ async function exec(cmd, options={}) {
 
 class Sudoer {
 
-  constructor() {
-    this.cp = null;
-    this.files = {};
-  }
-
   async makeTempDir() {
-    this.files.dir = await mkdtemp(path.join(tmpdir(), 'electron sudo-'));
-    this.files.stdout = path.join(this.files.dir, 'stdout');
-    this.files.stderr = path.join(this.files.dir, 'stderr');
-    // console.dir(this.files)
+    const files = {};
+    files.dir = await mkdtemp(path.join(tmpdir(), 'electron sudo-'));
+    files.stdout = path.join(files.dir, 'stdout');
+    files.stderr = path.join(files.dir, 'stderr');
+    // console.dir(files)
     await Promise.all([
-      writeFile(this.files.stdout, ''),
-      writeFile(this.files.stderr, '')
+      writeFile(files.stdout, ''),
+      writeFile(files.stderr, '')
     ]);
+    return files;
   }
 
   joinEnv(env) {
@@ -45,7 +42,7 @@ class Sudoer {
     return spreaded;
   }
 
-  _watch(name) {
+  _watch(cp, files, name) {
     let readInProgress = false;
     let readAgain = false;
     let start = 0;
@@ -54,11 +51,11 @@ class Sudoer {
         readAgain = true;
         return;
       }
-      let stream = createReadStream(this.files[name], { start });
+      let stream = createReadStream(files[name], { start });
       readInProgress = true;
       stream.on('data', (data) => {
         start += data.length;
-        if (this.cp) { this.cp[name].emit('data', data); }
+        if (cp) { cp[name].emit('data', data); }
       });
       const done = () => {
         readInProgress = false;
@@ -70,18 +67,19 @@ class Sudoer {
       stream.on('error', done);
       stream.on('close', done);
     };
+    setImmediate(() => tail());
     if (process.platform === 'win32') {
-      return watchFile(this.files[name], { interval: 200, persistent: false }, tail);
+      return watchFile(files[name], { interval: 200, persistent: false }, tail);
     } else {
-      return watch(this.files[name], { persistent: false }, tail);
+      return watch(files[name], { persistent: false }, tail);
     }
   }
 
-  async clean () {
-    if (!this.files || !this.files.dir) {
+  async clean (files) {
+    if (!files || !files.dir) {
       return;
     }
-    await rmdir(this.files.dir, {recursive: true});
+    await rmdir(files.dir, {recursive: true});
   }
 
   _prepParam(param) {
@@ -104,21 +102,21 @@ class SudoerDarwin extends Sudoer {
 
   // osascript doesn't stream stdout/stderr, so we're force to redirect to file
   async spawn(command, args, options={}) {
-    await this.makeTempDir();
-    this._watch('stdout');
-    this._watch('stderr');
+    const files = await this.makeTempDir();
     let cmd = [command, ...args].map(this._prepParam).join(' ');
     // command is going inside double quotes, escape quotes and backslashes
     cmd = cmd.replace(/([\\"])/g, '\\$1');
-    let osaArgs = ['-e', `do shell script "${cmd} >> \\"${this.files.stdout}\\" 2>> \\"${this.files.stderr}\\"" without altering line endings with administrator privileges`];
+    let osaArgs = ['-e', `do shell script "${cmd} >> \\"${files.stdout}\\" 2>> \\"${files.stderr}\\"" without altering line endings with administrator privileges`];
     if (options.shell) {
       osaArgs[1] = `'` + osaArgs[1].replace(/'/g, `'\\''`) + `'`;
     }
-    this.cp = child.spawn('osascript', osaArgs, options);
-    this.cp.on('exit', () => {
-      this.clean();
+    const cp = child.spawn('osascript', osaArgs, options);
+    this._watch(cp, files, 'stdout');
+    this._watch(cp, files, 'stderr');
+    cp.on('exit', () => {
+      this.clean(files);
     });
-    return this.cp;
+    return cp;
   }
 }
 
@@ -141,8 +139,8 @@ class SudoerLinux extends Sudoer {
 class SudoerWin32 extends Sudoer {
 
   async writeBatch(command, args, options) {
-    await this.makeTempDir();
-    this.files.batch = path.join(this.files.dir, 'batch.bat');
+    const files = await this.makeTempDir();
+    files.batch = path.join(files.dir, 'batch.bat');
     let env = this.joinEnv(options.env);
     let batch = `setlocal enabledelayedexpansion\r\n`;
     if (env.length) {
@@ -154,23 +152,24 @@ class SudoerWin32 extends Sudoer {
     } else {
       batch += command;
     }
-    await writeFile(this.files.batch, `${batch} >> "${this.files.stdout}" 2>> "${this.files.stderr}"`);
+    await writeFile(files.batch, `${batch} >> "${files.stdout}" 2>> "${files.stderr}"`);
+    return files;
   }
 
   async exec(command, options={}) {
     return new Promise(async (resolve, reject) => {
       try {
-        await this.writeBatch(command, [], options);
+        const files = await this.writeBatch(command, [], options);
         // DOS shell: two double quotes to escape
-        command = `powershell -Command "Start-Process cmd -Verb RunAs -WindowStyle hidden -Wait -ArgumentList ""/c ${this.files.batch.replace(/ /g, '^ ')}"""`;
+        command = `powershell -Command "Start-Process cmd -Verb RunAs -WindowStyle hidden -Wait -ArgumentList ""/c ${files.batch.replace(/ /g, '^ ')}"""`;
         // No need to wait exec output because output is redirected to temporary file
         await exec(command, options);
         // Read entire output from redirected file on process exit
         const output = await Promise.all([
-          readFile(this.files.stdout, 'utf8'),
-          readFile(this.files.stderr, 'utf8')
+          readFile(files.stdout, 'utf8'),
+          readFile(files.stderr, 'utf8')
         ]);
-        this.clean();
+        this.clean(files);
         return resolve({stdout: output[0], stderr: output[1]});
       } catch (err) {
         return reject(err);
@@ -179,19 +178,19 @@ class SudoerWin32 extends Sudoer {
   }
 
   async spawn(command, args, options={}) {
-    await this.writeBatch(command, args, options);
-    this._watch('stdout');
-    this._watch('stderr');
+    const files = await this.writeBatch(command, args, options);
     // DOS shell: two double quotes to escape
-    let sudoArgs = ['-Command', `Start-Process cmd -Verb RunAs -WindowStyle hidden -Wait -ArgumentList "/c ${this.files.batch.replace(/ /g, '^ ')}"`];
+    let sudoArgs = ['-Command', `Start-Process cmd -Verb RunAs -WindowStyle hidden -Wait -ArgumentList "/c ${files.batch.replace(/ /g, '^ ')}"`];
     if (options.shell) {
       sudoArgs[1] = '"' + sudoArgs[1].replace(/"/g, '""') + '"';
     }
-    this.cp = child.spawn('powershell', sudoArgs, options);
-    this.cp.on('exit', () => {
-      this.clean();
+    let cp = child.spawn('powershell', sudoArgs, options);
+    this._watch(cp, files, 'stdout');
+    this._watch(cp, files, 'stderr');
+    cp.on('exit', () => {
+      this.clean(files);
     });
-    return this.cp;
+    return cp;
   }
 }
 
