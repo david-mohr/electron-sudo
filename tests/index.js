@@ -1,7 +1,6 @@
 import chai from 'chai';
 import dirtyChai from 'dirty-chai';
 import Sudoer from '../src/index';
-import { EOL } from 'os';
 
 let { expect } = chai;
 let { platform } = process;
@@ -21,11 +20,11 @@ describe(`electron-sudo :: ${platform}`, function () {
   });
 
   it('should spawn with ENV', async function () {
-    let cp = await sudoer.spawn('echo', [PARAM], {env: {PARAM: 'VALUE'}});
+    let cp = await sudoer.spawn('echo', [PARAM], {env: {PARAM: 'VALUE'}, shell: true});
     let output = '';
     cp.stdout.on('data', data => output += data.toString());
     return new Promise(resolve => {
-      cp.on('close', () => {
+      cp.on('exit', () => {
         expect(output.trim()).to.be.equals('VALUE');
         expect(cp.pid).to.be.a('number');
         resolve();
@@ -34,11 +33,11 @@ describe(`electron-sudo :: ${platform}`, function () {
   });
 
   it('should spawn and capture stderr', async function () {
-    let cp = await sudoer.spawn('echo', ['VALUE', '>&2']);
+    let cp = await sudoer.spawn('node', ['-e', 'console.error("VALUE")']);
     let output = '';
     cp.stderr.on('data', data => output += data.toString());
     return new Promise(resolve => {
-      cp.on('close', () => {
+      cp.on('exit', () => {
         expect(output.trim()).to.be.equals('VALUE');
         resolve();
       });
@@ -46,15 +45,19 @@ describe(`electron-sudo :: ${platform}`, function () {
   });
 
   it('should spawn and report stdout immediately', async function () {
-    let cp = await sudoer.spawn('echo', ['VAL1', ';', 'sleep', '2', ';', 'echo', 'VAL2']);
+    let cp = await sudoer.spawn('node', ['-e', `console.log('VAL1'); setTimeout(() => console.log('VAL2'), 2000)`]);
     let output = '';
     let output1s;
-    cp.stdout.on('data', data => output += data.toString());
-    setTimeout(() => output1s = output, 1000);
+    cp.stdout.on('data', data => {
+      output += data.toString();
+      if (!output1s) {
+        output1s = output;
+      }
+    });
     return new Promise(resolve => {
-      cp.on('close', () => {
+      cp.on('exit', () => {
         expect(output1s.trim()).to.be.equals(`VAL1`);
-        expect(output.trim()).to.be.equals(`VAL1${EOL}VAL2`);
+        expect(output.trim()).to.match(/VAL1[\r\n]+VAL2/);
         resolve();
       });
     });
