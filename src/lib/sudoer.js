@@ -85,14 +85,11 @@ class Sudoer {
   }
 
   _prepParam(param) {
-    if (/"/.test(param)) {
+    if (/['" ]/.test(param)) {
       if (process.platform === 'win32') {
         return '"' + param.replace(/"/g, '""') + '"';
       }
       return '"' + param.replace(/"/g, '\\"') + '"';
-    }
-    if (/ /.test(param)) {
-      return '"' + param + '"';
     }
     return param;
   }

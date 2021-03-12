@@ -44,6 +44,18 @@ describe(`electron-sudo :: ${platform}`, function () {
     });
   });
 
+  it('should support single and double quotes', async function () {
+    let cp = await sudoer.spawn('node', ['-e', `console.log('VAL' + "UE")`]);
+    let output = '';
+    cp.stdout.on('data', data => output += data.toString());
+    return new Promise(resolve => {
+      cp.on('exit', () => {
+        expect(output.trim()).to.be.equals('VALUE');
+        resolve();
+      });
+    });
+  });
+
   it('should spawn and report stdout immediately', async function () {
     let cp = await sudoer.spawn('node', ['-e', `console.log('VAL1'); setTimeout(() => console.log('VAL2'), 2000)`]);
     let output = '';
