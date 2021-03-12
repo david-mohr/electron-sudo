@@ -11,8 +11,8 @@ chai.use(dirtyChai);
 
 describe(`electron-sudo :: ${platform}`, function () {
 
-  this.timeout(100000);
-  this.slow(100000);
+  this.timeout(10000);
+  this.slow(10000);
 
   it('should exec with ENV', async function () {
     let result = await sudoer.exec(`echo ${PARAM}`, {env: {PARAM: 'VALUE'}});

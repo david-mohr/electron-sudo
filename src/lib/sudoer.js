@@ -45,79 +45,6 @@ class Sudoer {
     return spreaded;
   }
 
-  escapeDoubleQuotes(string) {
-    return string.replace(/"/g, '\\"');
-  }
-
-  encloseDoubleQuotes(string) {
-    return string.replace(/(.+)/g, '"$1"');
-  }
-}
-
-class SudoerDarwin extends Sudoer {
-  // https://developer.apple.com/library/archive/technotes/tn2065/_index.html
-
-  async exec(command, options={}) {
-    let tmpDir = await this.makeTempDir();
-    return exec(`osascript -e 'do shell script "${command} > '${tmpDir.stdout}' 2> '${tmpDir.stderr}'" without altering line endings with administrator privileges'`, options);
-  }
-
-  async spawn(command, args, options={}) {
-    return new Promise(async (resolve, reject) => {
-      let tmpDir = await this.makeTempDir();
-      this.cp = child.spawn('osascript', ['-e', `'do shell script "${[command, ...args].join(' ')} > '${tmpDir.stdout}' 2> '${tmpDir.stderr}'" without altering line endings with administrator privileges'`], options);
-      this.cp.on('error', async (err) => {
-        reject(err);
-      });
-      resolve(this.cp);
-    });
-  }
-}
-
-class SudoerLinux extends Sudoer {
-  async exec(command, options={}) {
-    return exec(`/usr/bin/pkexec --disable-internal-agent ${command}`, options);
-  }
-
-  async spawn(command, args, options={}) {
-    let sudoArgs = ['--disable-internal-agent'];
-    if (options.env) {
-      sudoArgs.push('env', ...this.joinEnv(options.env));
-    }
-    sudoArgs.push(command);
-    sudoArgs.push(...args);
-    return child.spawn('/usr/bin/pkexec', sudoArgs, options);
-  }
-}
-
-class SudoerWin32 extends Sudoer {
-
-  _prepParam(param) {
-    if (/"/.test(param)) {
-      return '"' + param.replace(/"/g, '""') + '"';
-    }
-    if (/ /.test(param)) {
-      return '"' + param + '"';
-    }
-    return param;
-  }
-  async writeBatch(command, args, options) {
-    await this.makeTempDir();
-    this.files.batch = path.join(this.files.dir, 'batch.bat');
-    let env = this.joinEnv(options.env);
-    let batch = `setlocal enabledelayedexpansion\r\n`;
-    if (env.length) {
-      batch += `set ${env.join('\r\nset ')}\r\n`;
-    }
-    // check the command and all the args for spaces and double quotes
-    if (args && args.length) {
-      batch += this._prepParam(command) + ' ' + args.map(this._prepParam).join(' ');
-    } else {
-      batch += command;
-    }
-    await writeFile(this.files.batch, `${batch} >> "${this.files.stdout}" 2>> "${this.files.stderr}"`);
-  }
-
   _watch(name) {
     let readInProgress = false;
     let readAgain = false;
@@ -148,6 +75,89 @@ class SudoerWin32 extends Sudoer {
     } else {
       return watch(this.files[name], { persistent: false }, tail);
     }
+  }
+
+  async clean () {
+    if (!this.files || !this.files.dir) {
+      return;
+    }
+    await rmdir(this.files.dir, {recursive: true});
+  }
+
+  _prepParam(param) {
+    if (/"/.test(param)) {
+      if (process.platform === 'win32') {
+        return '"' + param.replace(/"/g, '""') + '"';
+      }
+      return '"' + param.replace(/"/g, '\\"') + '"';
+    }
+    if (/ /.test(param)) {
+      return '"' + param + '"';
+    }
+    return param;
+  }
+}
+
+class SudoerDarwin extends Sudoer {
+  // https://developer.apple.com/library/archive/technotes/tn2065/_index.html
+
+  async exec(command, options={}) {
+    return exec(`osascript -e 'do shell script "${command}" without altering line endings with administrator privileges'`, options);
+  }
+
+  // osascript doesn't stream stdout/stderr, so we're force to redirect to file
+  async spawn(command, args, options={}) {
+    await this.makeTempDir();
+    this._watch('stdout');
+    this._watch('stderr');
+    let cmd = [command, ...args].map(this._prepParam).join(' ');
+    // command is going inside double quotes, escape quotes and backslashes
+    cmd = cmd.replace(/([\\"])/g, '\\$1');
+    let osaArgs = ['-e', `do shell script "${cmd} >> \\"${this.files.stdout}\\" 2>> \\"${this.files.stderr}\\"" without altering line endings with administrator privileges`];
+    if (options.shell) {
+      osaArgs[1] = `'` + osaArgs[1].replace(/'/g, `'\\''`) + `'`;
+    }
+    this.cp = child.spawn('osascript', osaArgs, options);
+    this.cp.on('exit', () => {
+      this.clean();
+    });
+    return this.cp;
+  }
+}
+
+class SudoerLinux extends Sudoer {
+  async exec(command, options={}) {
+    return exec(`/usr/bin/pkexec --disable-internal-agent ${command}`, options);
+  }
+
+  async spawn(command, args, options={}) {
+    let sudoArgs = ['--disable-internal-agent'];
+    if (options.env) {
+      sudoArgs.push('env', ...this.joinEnv(options.env));
+    }
+    sudoArgs.push(command);
+    sudoArgs.push(...args);
+    return child.spawn('/usr/bin/pkexec', sudoArgs, options);
+  }
+}
+
+class SudoerWin32 extends Sudoer {
+
+  async writeBatch(command, args, options) {
+    await this.makeTempDir();
+    this.files.batch = path.join(this.files.dir, 'batch.bat');
+    let env = this.joinEnv(options.env);
+    let batch = `setlocal enabledelayedexpansion\r\n`;
+    if (env.length) {
+      batch += `set ${env.join('\r\nset ')}\r\n`;
+    }
+    // check the command and all the args for spaces and double quotes
+    if (args && args.length) {
+      batch += [command, ...args].map(this._prepParam).join(' ');
+    } else {
+      batch += command;
+    }
+    await writeFile(this.files.batch, `${batch} >> "${this.files.stdout}" 2>> "${this.files.stderr}"`);
   }
 
   async exec(command, options={}) {
@@ -185,13 +195,6 @@ class SudoerWin32 extends Sudoer {
       this.clean();
     });
     return this.cp;
-  }
-
-  async clean () {
-    if (!this.files || !this.files.dir) {
-      return;
-    }
-    await rmdir(this.files.dir, {recursive: true});
   }
 }
 
