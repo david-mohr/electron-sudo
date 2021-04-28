@@ -67,7 +67,8 @@ async function clean (files) {
 }
 
 function prepParam(param) {
-  if (/['" ]/.test(param)) {
+  // anything shell like
+  if (/['" ;(){}<>]/.test(param)) {
     if (process.platform === 'win32') {
       return '"' + param.replace(/"/g, '""') + '"';
     }

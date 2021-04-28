@@ -1,6 +1,6 @@
 {
   "name": "electron-sudo",
-  "version": "5.0.1",
+  "version": "5.0.2",
   "description": "Electron subprocess with administrative privileges, prompting the user with an OS dialog if necessary.",
   "main": "index.js",
   "author": "David Mohr",

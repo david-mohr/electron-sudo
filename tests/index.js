@@ -31,7 +31,7 @@ describe(`electron-sudo :: ${platform}`, function () {
     });
   });
 
-  it.only('should spawn with spaces in ENV, with shell', async function () {
+  it('should spawn with spaces in ENV, with shell', async function () {
     let cp = await sudo.spawn('echo', [PARAM], {env: {PARAM: 'MORE VALUE'}, shell: true});
     let output = '';
     cp.stdout.on('data', data => output += data.toString());
@@ -43,7 +43,7 @@ describe(`electron-sudo :: ${platform}`, function () {
     });
   });
 
-  it.only('should spawn with spaces in ENV, without shell', async function () {
+  it('should spawn with spaces in ENV, without shell', async function () {
     let cp = await sudo.spawn('node', ['-e', 'console.log(process.env.PARAM)'], {env: {PARAM: 'MORE VALUE', PATH: process.env.PATH}});
     let output = '';
     cp.stdout.on('data', data => output += data.toString());
