@@ -148,7 +148,7 @@ module.exports.SudoerWin32 = {
         const files = await writeBatch(command, [], options);
         // DOS shell: two double quotes to escape
         command = `powershell -Command "Start-Process cmd -Verb RunAs -WindowStyle hidden -Wait -ArgumentList ""/c ${files.batch.replace(/ /g, '^ ')}"""`;
-      console.log('EXEC:', command, options)
+        console.log('EXEC:', command, options)
         // No need to wait exec output because output is redirected to temporary file
         await exec(command, options);
         // Read entire output from redirected file on process exit
@@ -172,6 +172,7 @@ module.exports.SudoerWin32 = {
       sudoArgs[1] = '"' + sudoArgs[1].replace(/"/g, '""') + '"';
     }
     let cp = child.spawn('powershell', sudoArgs, options);
+    console.log('SPAWN:', 'powershell', sudoArgs, options)
     _watch(cp, files, 'stdout');
     _watch(cp, files, 'stderr');
     cp.on('exit', () => {
