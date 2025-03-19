@@ -125,6 +125,7 @@ module.exports.SudoerLinux = {
 
 async function writeBatch(command, args, options) {
   const files = await makeTempDir();
+  console.log('BATCH:', files)
   files.batch = path.join(files.dir, 'batch.bat');
   let batch = `setlocal enabledelayedexpansion\r\n`;
   if (options.env) {
@@ -147,6 +148,7 @@ module.exports.SudoerWin32 = {
         const files = await writeBatch(command, [], options);
         // DOS shell: two double quotes to escape
         command = `powershell -Command "Start-Process cmd -Verb RunAs -WindowStyle hidden -Wait -ArgumentList ""/c ${files.batch.replace(/ /g, '^ ')}"""`;
+      console.log('EXEC:', command, options)
         // No need to wait exec output because output is redirected to temporary file
         await exec(command, options);
         // Read entire output from redirected file on process exit
@@ -154,7 +156,7 @@ module.exports.SudoerWin32 = {
           readFile(files.stdout, 'utf8'),
           readFile(files.stderr, 'utf8')
         ]);
-        clean(files);
+        // clean(files);
         return resolve({stdout: output[0], stderr: output[1]});
       } catch (err) {
         return reject(err);
@@ -173,7 +175,7 @@ module.exports.SudoerWin32 = {
     _watch(cp, files, 'stdout');
     _watch(cp, files, 'stderr');
     cp.on('exit', () => {
-      clean(files);
+      // clean(files);
     });
     return cp;
   }
